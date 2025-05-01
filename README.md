@@ -2,6 +2,8 @@
 
 Some optimized methods for filling a chart series in QML from Python.
 
+https://github.com/user-attachments/assets/392faa0c-7458-42fc-89f2-02f9cef6901f
+
 ## series_helper
 Contains these methods:
 
@@ -24,3 +26,5 @@ Uses ```downSample```, ```fillSeriesFromArrays``` and worker thread.  First the 
 ## Features
 
 - Point count to speed up wave and fft generation.
+- Axis updates from python
+- All calculations in python
