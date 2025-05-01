@@ -72,7 +72,7 @@ class ChartDataProvider(QObject):
     @pointCount.setter
     def pointCount(self, count):
         if self._point_count != count:
-            self._point_count = max(100, min(5000, count))  # Bounds check
+            self._point_count = max(100, min(2000, count))  # Bounds check
             self.pointCountChanged.emit()
     
     @Property(float, notify=amplitudeLevelChanged)

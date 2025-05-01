@@ -84,18 +84,19 @@ class SeriesHelper(QObject):
             return False
             
         # For very large datasets, do quick preview first
-        if len(x_values) > 1000:
+        if len(x_values) > 5000:
             # First display a quick, low-resolution preview
             x_preview, y_preview = self.downsample(x_values, y_values, min_points)
             self.fillSeriesFromArrays(series, x_preview, y_preview)
             
            
             class DownsampleWorker(QObject):
-                resultReady = Signal(list, list)
+                resultReady = Signal(QXYSeries, object, object)
                 
-                def __init__(self, helper, x, y, max_pts):
+                def __init__(self, helper, series, x, y, max_pts):
                     super().__init__()
                     self.helper = helper
+                    self.series = series
                     self.x = x
                     self.y = y
                     self.max_pts = max_pts
@@ -103,26 +104,20 @@ class SeriesHelper(QObject):
                 def process(self):
                     try:
                         x_ds, y_ds = self.helper.downsample(self.x, self.y, self.max_pts)
-                        self.resultReady.emit(x_ds, y_ds)
+                        self.resultReady.emit(self.series, x_ds, y_ds)
                     except Exception as e:
                         print(f"Error in downsampling worker: {e}")
             
             # Create worker and thread
             worker_thread = QThread()
-            worker = DownsampleWorker(self, x_values, y_values, max_points)
+            # Pass the series object to the worker
+            worker = DownsampleWorker(self, series, x_values, y_values, max_points)
             worker.moveToThread(worker_thread)
             
             # Connect signals using a safer approach
             worker_thread.started.connect(worker.process)
-            # Use lambda to avoid updating UI directly from worker thread
-            worker.resultReady.connect(lambda x, y: QMetaObject.invokeMethod(
-                self, 
-                "fillSeriesFromArrays", 
-                Qt.ConnectionType.QueuedConnection,
-                Q_ARG(QXYSeries, series),
-                Q_ARG(list, x),
-                Q_ARG(list, y)
-            ))
+            # Connect to our dedicated slot method instead of using invokeMethod
+            worker.resultReady.connect(self.handleWorkerResult)
             worker.resultReady.connect(worker_thread.quit)
             # Use direct connections for cleanup events
             worker_thread.finished.connect(lambda: worker.deleteLater(), Qt.ConnectionType.DirectConnection)
@@ -134,6 +129,18 @@ class SeriesHelper(QObject):
         else:
             # For smaller datasets, just use normal processing
             return self.fillSeriesOptimized(series, x_values, y_values, max_points)
+    
+    @Slot(QXYSeries, object, object)
+    def handleWorkerResult(self, series, x_values, y_values):
+        """Handle results from worker thread by updating the series
+        
+        Args:
+            series: The series to update
+            x_values: X coordinates (as list or array)
+            y_values: Y coordinates (as list or array)
+        """
+        # Simply use existing method to update the series
+        self.fillSeriesFromArrays(series, x_values, y_values)
     
     def is_valid_number(self, value):
         """Check if a value is a valid, finite number"""

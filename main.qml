@@ -24,11 +24,12 @@ Window {
         switch (true) {
             // CASE 1: FFT Phase Spectrum + Log Frequency
             case showFFT && showPhase && logFFT: {
-                seriesHelper.fillSeriesOptimized(
+                seriesHelper.fillSeriesParallel(
                     lineSeries,
                     chartDataProvider.logPhaseX,
                     chartDataProvider.logPhaseY, 
-                    chartDataProvider.pointCount
+                    chartDataProvider.pointCount,
+                    100
                 )
                 chartView.title = chartDataProvider.phaseTitle + " (Log Freq)"
                 axisX.titleText = "log10(Frequency) [Hz]"
@@ -44,11 +45,12 @@ Window {
             
             // CASE 2: FFT Phase Spectrum + Linear Frequency
             case showFFT && showPhase: {
-                seriesHelper.fillSeriesOptimized(
+                seriesHelper.fillSeriesParallel(
                     lineSeries,
                     chartDataProvider.phaseX,
                     chartDataProvider.phaseY,
-                    chartDataProvider.pointCount
+                    chartDataProvider.pointCount,
+                    100
                 )
                 chartView.title = chartDataProvider.phaseTitle
                 axisX.titleText = "Frequency (Hz)"
@@ -64,11 +66,12 @@ Window {
             
             // CASE 3: FFT Magnitude Spectrum + Log Frequency
             case showFFT && logFFT: {
-                seriesHelper.fillSeriesOptimized(
+                seriesHelper.fillSeriesParallel(
                     lineSeries,
                     chartDataProvider.logFFTX,
                     chartDataProvider.logFFTY,
-                    chartDataProvider.pointCount
+                    chartDataProvider.pointCount,
+                    100
                 )
                 chartView.title = chartDataProvider.fftTitle + " (Log Freq)"
                 axisX.titleText = "log10(Frequency) [Hz]"
@@ -85,11 +88,12 @@ Window {
             
             // CASE 4: FFT Magnitude Spectrum + Linear Frequency
             case showFFT: {
-                seriesHelper.fillSeriesOptimized(
+                seriesHelper.fillSeriesParallel(
                     lineSeries,
                     chartDataProvider.fftX,
                     chartDataProvider.fftY,
-                    chartDataProvider.pointCount
+                    chartDataProvider.pointCount,
+                    100
                 )
                 chartView.title = chartDataProvider.fftTitle
                 axisX.titleText = "Frequency (Hz)"
@@ -106,11 +110,12 @@ Window {
             
             // CASE 5: Time domain waveform (default case)
             default: {
-                seriesHelper.fillSeriesOptimized(
+                seriesHelper.fillSeriesParallel(
                     lineSeries, 
                     chartDataProvider.xValues, 
                     chartDataProvider.yValues,
-                    chartDataProvider.pointCount
+                    chartDataProvider.pointCount,
+                    100
                 );
                 chartView.title = chartDataProvider.title
                 axisX.titleText = "X Axis"
@@ -447,7 +452,7 @@ Window {
                 id: pointsSlider
                 Layout.preferredWidth: 100
                 from: 10
-                to: 1000
+                to: 2000
                 value: chartDataProvider.pointCount
                 stepSize: 10
                 onValueChanged: {
