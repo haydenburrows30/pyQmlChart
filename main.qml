@@ -151,28 +151,104 @@ Window {
             
             // Optimize rendering
             animationOptions: ChartView.NoAnimation
+
+            ToolTip {
+                id: id_tooltip
+                contentItem: Text{
+                    color: "#21be2b"
+                    text: id_tooltip.text
+                }
+                background: Rectangle {
+                    border.color: "#21be2b"
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.CrossCursor
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton
+
+                onPressed: {
+                    var point = Qt.point(mouseX, mouseY)
+                    rectang.x = point.x
+                    rectang.y = point.y
+                    rectang.visible = true
+                }
+
+                onClicked:{
+                    var point = Qt.point(mouseX, mouseY)
+                    var cp = chartView.mapToValue(point,chartView.series(0))
+                    var text = qsTr("x: %1, y: %2").arg(cp.x.toFixed(1)).arg(cp.y.toFixed(1))
+
+                    id_tooltip.x = point.x
+                    id_tooltip.y = point.y - id_tooltip.height
+                    id_tooltip.text = text
+                    id_tooltip.delay = 500
+                    id_tooltip.timeout = 10000
+                    id_tooltip.visible = true
+                }
+
+                onMouseXChanged: {
+                    var point = Qt.point(mouseX, mouseY)
+                    rectang.width = point.x - rectang.x
+                    linemarkerx.visible = true
+                    linemarkerx.x = mouseX - linemarkerx.width / 2
+
+                    var theValue = chartView.mapToValue(Qt.point(mouseX, mouseY), chartView.series(0))
+
+                    currentxyposition.text = "x: " + theValue.x.toFixed(1) + " y: " + theValue.y.toFixed(1)
+                }
+
+                onMouseYChanged: {
+                    var point = Qt.point(mouseX, mouseY)
+                    rectang.height = point.y - rectang.y
+
+                    var theValue = chartView.mapToValue(Qt.point(mouseX, mouseY), chartView.series(0))
+
+                    linemarkery.visible = true
+                    linemarkery.y = mouseY - linemarkery.height/2
+
+                }
+
+                onReleased: {
+                    chartView.zoomIn(Qt.rect(rectang.x, rectang.y, rectang.width, rectang.height))
+                    rectang.visible = false
+                }
+
+                onDoubleClicked: { chartView.zoomReset() }
+
+                onPositionChanged: {
+                    id_tooltip.visible = false
+                }
+
+                onExited: {
+                    linemarkery.visible = false
+                    linemarkerx.visible = false
+                }
+            }
             
             MouseArea {
                 anchors.fill: parent
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                acceptedButtons: Qt.RightButton
                 drag.target: null
-                cursorShape: Qt.OpenHandCursor
+                // cursorShape: Qt.OpenHandCursor
 
                 property bool panning: false
                 property real lastX: 0
                 property real lastY: 0
 
                 onPressed: function(mouse) {
-                    if (mouse.button === Qt.LeftButton) {
+                    if (mouse.button === Qt.RightButton) {
                         panning = true
                         lastX = mouse.x
                         lastY = mouse.y
-                        cursorShape = Qt.ClosedHandCursor
+                        // cursorShape = Qt.ClosedHandCursor
                     }
                 }
                 onReleased: function(mouse) {
                     panning = false
-                    cursorShape = Qt.OpenHandCursor
+                    // cursorShape = Qt.OpenHandCursor
                 }
                 onPositionChanged: function(mouse) {
                     if (panning) {
@@ -272,6 +348,38 @@ Window {
                 }
                 z: 10
             }
+
+            Rectangle{
+                id: rectang
+                color: "black"
+                opacity: 0.6
+                visible: false
+            }
+
+            Rectangle{
+                id: linemarkerx
+                y: parent.plotArea.y
+                height: parent.plotArea.height
+                width: 1
+                visible: false
+                border.width: 1
+                color: "red"
+            }
+
+            Rectangle{
+                id: linemarkery
+                x: parent.plotArea.x
+                width: parent.plotArea.width
+                height: 1
+                visible: false
+                border.width: 1
+                color: "red"
+            }
+        }
+
+        Label {
+            id: currentxyposition
+            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
         }
         
         // Plot type control
