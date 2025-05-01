@@ -129,7 +129,6 @@ class ChartDataProvider(QObject):
     def windowType(self, wtype):
         if self._window_type != wtype:
             self._window_type = wtype
-            print(f"Window type set to: {wtype}")
             self.windowTypeChanged.emit()
 
     @Property(float, notify=noiseLevelChanged)
@@ -150,7 +149,6 @@ class ChartDataProvider(QObject):
     def plotType(self, wtype):
         if self._plot_type != wtype:
             self._plot_type = wtype
-            print(f"Plot type set to: {wtype}")
             self.plotTypeChanged.emit()
 
     @Property(list, notify=phaseDataChanged)
@@ -305,7 +303,6 @@ class ChartDataProvider(QObject):
         if len(freq) > 1:
             idx = np.argmax(fft_mag[1:]) + 1
             self._peak_freq = freq[idx]
-            print(f"Detected peak frequency: {self._peak_freq} Hz (set frequency: {self._frequency_level} Hz)")
         else:
             self._peak_freq = 0.0
 
@@ -427,10 +424,24 @@ class ChartDataProvider(QObject):
             # X-axis for FFT
             if self._fft_x:
                 axis.setMin(0)
-                axis.setMax(self._fft_x[-1])
+                # Adjust the X-axis range based on frequency content and requested frequency
+                # Use either the max frequency from FFT or 1.2x our requested frequency, whichever is greater
+                nyquist_freq = self._fft_x[-1]
+                display_max = max(nyquist_freq, self._frequency_level * 1.2)
+                
+                # Handle zoom levels - if there's a significant peak, focus on it
+                if self._peak_freq > 0 and self._peak_freq < nyquist_freq * 0.8:
+                    # Show some context around the peak
+                    display_max = min(self._peak_freq * 2.5, nyquist_freq)
+                    
+                # Make sure we display at least 10% of the frequency range
+                display_max = max(display_max, nyquist_freq * 0.1)
+                
+                axis.setMax(display_max)
+                
             else:
                 axis.setMin(0)
-                axis.setMax(100)
+                axis.setMax(self._frequency_level * 2 or 100)
                 
         elif data_type == "phase":
             # Phase spectrum
