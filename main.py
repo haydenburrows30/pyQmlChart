@@ -191,21 +191,26 @@ class ChartDataProvider(QObject):
         phase = self._phase_level
         
         # Generate x values with adaptive point density for smoother curves
-        x = np.linspace(0, 10, self._point_count)
+        x = np.linspace(0, 100, self._point_count)
         
         # Calculate y values based on plot type and parameters
         if plot_type == "sine":
-            y = amplitude * np.sin(frequency * x + phase)
-            self._title = f"Sine Wave: A={amplitude:.1f}, f={frequency:.1f}, φ={phase:.1f}"
+            # Create frequency in cycles per 100 units
+            # For a frequency of 5 Hz, we want 5 complete cycles over the range [0, 100]
+            angular_freq = frequency * (2 * np.pi / 100)  
+            y = amplitude * np.sin(angular_freq * x + phase)
+            self._title = f"Sine Wave: A={amplitude:.1f}, f={frequency:.1f} Hz, φ={phase:.1f}"
         elif plot_type == "cosine":
-            y = amplitude * np.cos(frequency * x + phase)
-            self._title = f"Cosine Wave: A={amplitude:.1f}, f={frequency:.1f}, φ={phase:.1f}"
+            angular_freq = frequency * (2 * np.pi / 100)
+            y = amplitude * np.cos(angular_freq * x + phase)
+            self._title = f"Cosine Wave: A={amplitude:.1f}, f={frequency:.1f} Hz, φ={phase:.1f}"
         elif plot_type == "parabola":
             y = amplitude * (x - phase)**2
             self._title = f"Parabola: A={amplitude:.1f}, offset={phase:.1f}"
         else:
-            y = amplitude * np.sin(frequency * x + phase)
-            self._title = f"Sine Wave: A={amplitude:.1f}, f={frequency:.1f}, φ={phase:.1f}"
+            angular_freq = frequency * (2 * np.pi / 100)
+            y = amplitude * np.sin(angular_freq * x + phase)
+            self._title = f"Sine Wave: A={amplitude:.1f}, f={frequency:.1f} Hz, φ={phase:.1f}"
         
         # Add noise if requested
         if self._noise_level > 0.0:
@@ -223,6 +228,7 @@ class ChartDataProvider(QObject):
 
     @Slot()
     def compute_fft(self):
+        """Compute FFT with correct frequency scaling."""
         # Compute FFT of current yValues
         if not self._y_values or len(self._y_values) < 2:
             self._fft_x = []
@@ -249,9 +255,10 @@ class ChartDataProvider(QObject):
         y = np.array(self._y_values)
         n = len(y)
         x = np.array(self._x_values)
-        # Estimate sample spacing
-        dx = (x[-1] - x[0]) / (n - 1) if n > 1 else 1.0
-
+        
+        # Determine the sampling rate and period
+        x_range = x[-1] - x[0]  # Always 100 in our case
+        
         # Apply window if requested
         window = np.ones_like(y)
         if self._window_type == "Hann":
@@ -261,10 +268,18 @@ class ChartDataProvider(QObject):
         elif self._window_type == "Blackman":
             window = np.blackman(n)
         yw = y * window
-
-        freq = np.fft.rfftfreq(n, d=dx)
+        
+        # Compute FFT
         fft_vals = np.fft.rfft(yw)
-        fft_mag = np.abs(fft_vals) / n * 2  # Normalize amplitude
+        freq = np.fft.rfftfreq(n, d=1/n)
+        
+        # Normalize amplitude
+        fft_mag = np.abs(fft_vals) / n * 2
+        
+        # Store linear scale data
+        self._fft_x = freq.tolist()
+        self._fft_y = fft_mag.tolist()
+        self._fft_title = f"FFT Spectrum (N={n}, Window={self._window_type})"
 
         # Phase spectrum
         phase = np.angle(fft_vals)
@@ -273,7 +288,6 @@ class ChartDataProvider(QObject):
         self._phase_title = f"Phase Spectrum (N={n}, Window={self._window_type})"
         
         # Generate logarithmic scale data for frequency domain
-        # Filter out zero or negative values
         mask = freq > 0
         if np.any(mask):
             log_freq = np.log10(freq[mask])
@@ -287,17 +301,15 @@ class ChartDataProvider(QObject):
             self._log_phase_x = []
             self._log_phase_y = []
 
-        self._fft_x = freq.tolist()
-        self._fft_y = fft_mag.tolist()
-        self._fft_title = f"FFT Spectrum (N={n}, Window={self._window_type})"
-
         # Peak detection (ignore DC)
         if len(freq) > 1:
             idx = np.argmax(fft_mag[1:]) + 1
             self._peak_freq = freq[idx]
+            print(f"Detected peak frequency: {self._peak_freq} Hz (set frequency: {self._frequency_level} Hz)")
         else:
             self._peak_freq = 0.0
 
+        # Ensure all signals are emitted
         self.fftDataChanged.emit()
         self.fftTitleChanged.emit()
         self.peakFreqChanged.emit(self._peak_freq)
@@ -305,11 +317,11 @@ class ChartDataProvider(QObject):
         self.phaseTitleChanged.emit()
         self.logFFTDataChanged.emit()
         self.logPhaseDataChanged.emit()
+        
         return True
 
     @Slot(str)
     def export_csv(self, mode):
-        # mode: "wave" or "fft"
         if mode == "wave":
             x, y = self._x_values, self._y_values
             fname = "waveform.csv"
@@ -346,10 +358,8 @@ def main():
     
     # Load the QML file
     engine.load(QUrl.fromLocalFile("main.qml"))
-    
     if not engine.rootObjects():
         return -1
-    
     return app.exec()
 
 if __name__ == "__main__":

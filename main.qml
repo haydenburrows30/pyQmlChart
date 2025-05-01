@@ -17,8 +17,36 @@ Window {
     function updatePlot() {
         chartDataProvider.plotType = plotTypeCombo.currentValue
 
+        // Generate data first
         chartDataProvider.generate_data()
         chartDataProvider.compute_fft()
+
+        // Helper function to calculate min/max values from an array with safety checks
+        function getMinMax(array) {
+            if (!array || array.length === 0) return { min: 0, max: 1 };
+            
+            // Only sample a reasonable number of points for min/max calculation
+            const maxSamplePoints = 1000;
+            let step = array.length > maxSamplePoints ? Math.floor(array.length / maxSamplePoints) : 1;
+            
+            let min = array[0];
+            let max = array[0];
+            
+            // Use a stepped approach for large arrays
+            for (let i = 0; i < array.length; i += step) {
+                if (array[i] < min) min = array[i];
+                if (array[i] > max) max = array[i];
+            }
+            
+            // Avoid zero ranges that cause render issues
+            if (Math.abs(max - min) < 0.00001) {
+                max = min + 1;
+            }
+            
+            // Add padding (5%)
+            const padding = (max - min) * 0.05;
+            return { min: min - padding, max: max + padding };
+        }
 
         switch (true) {
             // CASE 1: FFT Phase Spectrum + Log Frequency
@@ -31,12 +59,20 @@ Window {
                 )
                 chartView.title = chartDataProvider.phaseTitle + " (Log Freq)"
                 axisX.titleText = "log10(Frequency) [Hz]"
-                axisX.min = chartDataProvider.logPhaseX.length > 0 ? Math.min.apply(null, chartDataProvider.logPhaseX) : 0
-                axisX.max = chartDataProvider.logPhaseX.length > 0 ? Math.max.apply(null, chartDataProvider.logPhaseX) : 1
+                
+                // Only update axes if there's data
+                if (chartDataProvider.logPhaseX.length > 0) {
+                    // Use simplified static ranges for phase
+                    axisY.min = -Math.PI;
+                    axisY.max = Math.PI;
+                    
+                    const xRange = getMinMax(chartDataProvider.logPhaseX);
+                    axisX.min = xRange.min;
+                    axisX.max = xRange.max;
+                }
+                
                 axisY.titleText = "Phase (radians)"
-                axisY.min = -Math.PI
-                axisY.max = Math.PI
-                peakLabel.visible = false
+                peakLabel.visible = false;
                 break
             }
             
@@ -50,12 +86,20 @@ Window {
                 )
                 chartView.title = chartDataProvider.phaseTitle
                 axisX.titleText = "Frequency (Hz)"
-                axisX.min = 0
-                axisX.max = chartDataProvider.phaseX.length > 0 ? chartDataProvider.phaseX[chartDataProvider.phaseX.length-1] : 1
+                
+                // Only update axes if there's data
+                if (chartDataProvider.phaseX.length > 0) {
+                    // Use simplified static ranges for phase
+                    axisY.min = -Math.PI;
+                    axisY.max = Math.PI;
+                    
+                    axisX.min = 0;
+                    const xRange = getMinMax(chartDataProvider.phaseX);
+                    axisX.max = xRange.max;
+                }
+                
                 axisY.titleText = "Phase (radians)"
-                axisY.min = -Math.PI
-                axisY.max = Math.PI
-                peakLabel.visible = false
+                peakLabel.visible = false;
                 break
             }
             
@@ -69,13 +113,28 @@ Window {
                 )
                 chartView.title = chartDataProvider.fftTitle + " (Log Freq)"
                 axisX.titleText = "log10(Frequency) [Hz]"
-                axisX.min = chartDataProvider.logFFTX.length > 0 ? Math.min.apply(null, chartDataProvider.logFFTX) : 0
-                axisX.max = chartDataProvider.logFFTX.length > 0 ? Math.max.apply(null, chartDataProvider.logFFTX) : 1
+                
+                // Only update axes if there's data
+                if (chartDataProvider.logFFTX.length > 0) {
+                    // Simple range for Y: 0 to max
+                    axisY.min = 0;
+                    
+                    // Use a reasonable default if calculating fails
+                    try {
+                        const yMax = Math.max.apply(null, chartDataProvider.logFFTY);
+                        axisY.max = yMax * 1.1; // 10% margin
+                    } catch (e) {
+                        axisY.max = 1;
+                    }
+                    
+                    const xRange = getMinMax(chartDataProvider.logFFTX);
+                    axisX.min = xRange.min;
+                    axisX.max = xRange.max;
+                }
+                
                 axisY.titleText = "Magnitude"
-                axisY.min = 0
-                axisY.max = chartDataProvider.logFFTY.length > 0 ? Math.max.apply(null, chartDataProvider.logFFTY) : 1
-                peakLabel.visible = true
-                peakLabel.text = "Peak Frequency: " + chartDataProvider.peakFreq.toFixed(3) + " Hz"
+                peakLabel.visible = true;
+                peakLabel.text = "Peak Frequency: " + chartDataProvider.peakFreq.toFixed(3) + " Hz";
                 break
             }
             
@@ -89,13 +148,25 @@ Window {
                 )
                 chartView.title = chartDataProvider.fftTitle
                 axisX.titleText = "Frequency (Hz)"
-                axisX.min = 0
-                axisX.max = chartDataProvider.fftX.length > 0 ? chartDataProvider.fftX[chartDataProvider.fftX.length-1] : 1
+                
+                // Only update axes if there's data
+                if (chartDataProvider.fftX.length > 0) {
+                    axisX.min = 0;
+                    axisX.max = chartDataProvider.fftX[chartDataProvider.fftX.length-1];
+                    
+                    axisY.min = 0;
+                    // Use a reasonable default if calculating fails
+                    try {
+                        const yMax = Math.max.apply(null, chartDataProvider.fftY);
+                        axisY.max = yMax * 1.1; // 10% margin
+                    } catch (e) {
+                        axisY.max = 1;
+                    }
+                }
+                
                 axisY.titleText = "Magnitude"
-                axisY.min = 0
-                axisY.max = chartDataProvider.fftY.length > 0 ? Math.max.apply(null, chartDataProvider.fftY) : 1
-                peakLabel.visible = true
-                peakLabel.text = "Peak Frequency: " + chartDataProvider.peakFreq.toFixed(3) + " Hz"
+                peakLabel.visible = true;
+                peakLabel.text = "Peak Frequency: " + chartDataProvider.peakFreq.toFixed(3) + " Hz";
                 break
             }
             
@@ -109,12 +180,21 @@ Window {
                 );
                 chartView.title = chartDataProvider.title
                 axisX.titleText = "X Axis"
+                
+                // Use static ranges for better performance with waveforms
+                axisX.min = 0;
+                axisX.max = 100;
+
+                // Use a reasonable amplitude range based on the plot type
+                const amplitude = chartDataProvider.amplitudeLevel;
+                const noise = chartDataProvider.noiseLevel;
+                const padding = amplitude * 0.2 + noise;
+                
+                axisY.min = -amplitude - padding;
+                axisY.max = amplitude + padding;
+                
                 axisY.titleText = "Y Axis"
-                axisX.min = 0
-                axisX.max = 10
-                axisY.min = -3
-                axisY.max = 3
-                peakLabel.visible = false
+                peakLabel.visible = false;
                 break
             }
         }
@@ -142,7 +222,10 @@ Window {
             title: "Chart"
 
             property real zoomFactor: 1.2
-
+            
+            // Optimize rendering
+            animationOptions: ChartView.NoAnimation
+            
             MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -202,13 +285,16 @@ Window {
                 anchors.margins: 10
                 z: 100
                 visible: true
-                onClicked: chartView.zoomReset()
+                onClicked: {
+                    // Update immediately
+                    updatePlot()
+                }
             }
 
             ValueAxis {
                 id: axisX
                 min: 0
-                max: 10
+                max: 100
                 tickCount: 6
                 titleText: "X Axis"
             }
@@ -331,12 +417,12 @@ Window {
             Slider {
                 id: frequencySlider
                 Layout.fillWidth: true
-                from: 0.1
-                to: 3.0
+                from: 1
+                to: 100
                 value: chartDataProvider.frequencyLevel
-                stepSize: 0.1
+                stepSize: 1
                 onValueChanged: {
-                    frequencyValue.text = value.toFixed(1)
+                    frequencyValue.text = value.toFixed(0)
                     chartDataProvider.frequencyLevel = value
                 }
                 onMoved: updatePlot()
@@ -434,7 +520,7 @@ Window {
             Slider {
                 id: pointsSlider
                 Layout.preferredWidth: 100
-                from: 100
+                from: 10
                 to: 1000
                 value: chartDataProvider.pointCount
                 stepSize: 10
@@ -536,6 +622,10 @@ Window {
             Button {
                 text: "Export FFT CSV"
                 onClicked: chartDataProvider.export_csv("fft")
+            }
+            Button {
+                text: "Update Chart"
+                onClicked: updatePlot()
             }
         }
     }
