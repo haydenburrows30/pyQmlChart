@@ -2,7 +2,7 @@
 
 Some optimized methods for filling a chart series in QML from Python.
 
-https://github.com/user-attachments/assets/392faa0c-7458-42fc-89f2-02f9cef6901f
+https://github.com/user-attachments/assets/e1fd9558-ea6d-42bb-8c76-e5d443dc548a
 
 ## series_helper
 Contains these methods:
