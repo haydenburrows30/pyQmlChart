@@ -342,6 +342,124 @@ class ChartDataProvider(QObject):
             print(f"Export failed: {e}")
             return False
 
+    @Slot(list, result="QVariantMap")
+    def getMinMax(self, array):
+        """Calculate min and max values from an array with safety checks and padding.
+        
+        Returns a dictionary with min and max values that can be used to set axis ranges.
+        """
+        if not array or len(array) < 1:
+            return {"min": 0, "max": 1}
+            
+        # Only sample a reasonable number of points for min/max calculation
+        max_sample_points = 1000
+        step = len(array) > max_sample_points and int(len(array) / max_sample_points) or 1
+            
+        # Use NumPy for faster calculation if possible
+        if isinstance(array, np.ndarray):
+            # Use efficient numpy operations
+            if step > 1:
+                sampled = array[::step]
+                min_val = np.min(sampled)
+                max_val = np.max(sampled)
+            else:
+                min_val = np.min(array)
+                max_val = np.max(array)
+        else:
+            # Fallback to list operations
+            min_val = array[0]
+            max_val = array[0]
+            
+            for i in range(0, len(array), step):
+                if array[i] < min_val:
+                    min_val = array[i]
+                if array[i] > max_val:
+                    max_val = array[i]
+        
+        # Avoid zero ranges that cause render issues
+        if abs(max_val - min_val) < 0.00001:
+            max_val = min_val + 1
+        
+        # Add padding (5%)
+        padding = (max_val - min_val) * 0.05
+        
+        return {"min": min_val - padding, "max": max_val + padding}
+    
+    @Slot(QObject, str)
+    def setAxisRange(self, axis, data_type):
+        """Set axis range based on data type.
+        
+        Args:
+            axis: The QValueAxis object
+            data_type: String indicating the type of data ('fft', 'phase', 'wave', etc.)
+        """
+        if data_type == "wave":
+            # Time domain wave
+            data = self._y_values
+            if data:
+                range_data = self.getMinMax(data)
+                # Add extra padding for waves
+                padding = (range_data["max"] - range_data["min"]) * 0.15
+                axis.setMin(range_data["min"] - padding)
+                axis.setMax(range_data["max"] + padding)
+            else:
+                axis.setMin(-1)
+                axis.setMax(1)
+                
+        elif data_type == "wave_x":
+            # X-axis for time domain
+            axis.setMin(0)
+            axis.setMax(100)
+            
+        elif data_type == "fft":
+            # FFT magnitude
+            data = self._fft_y
+            if data:
+                # For FFT magnitude, always start at 0
+                axis.setMin(0)
+                max_val = max(data) * 1.1  # Add 10% margin
+                axis.setMax(max_val)
+            else:
+                axis.setMin(0)
+                axis.setMax(1)
+                
+        elif data_type == "fft_x":
+            # X-axis for FFT
+            if self._fft_x:
+                axis.setMin(0)
+                axis.setMax(self._fft_x[-1])
+            else:
+                axis.setMin(0)
+                axis.setMax(100)
+                
+        elif data_type == "phase":
+            # Phase spectrum
+            axis.setMin(-np.pi)
+            axis.setMax(np.pi)
+            
+        elif data_type == "log_fft":
+            # Log scale FFT magnitude
+            data = self._log_fft_y
+            if data:
+                # For FFT magnitude, always start at 0
+                axis.setMin(0)
+                max_val = max(data) * 1.1  # Add 10% margin
+                axis.setMax(max_val)
+            else:
+                axis.setMin(0)
+                axis.setMax(1)
+                
+        elif data_type == "log_fft_x":
+            # Log scale X-axis
+            data = self._log_fft_x
+            if data:
+                range_data = self.getMinMax(data)
+                axis.setMin(range_data["min"])
+                axis.setMax(range_data["max"])
+            else:
+                axis.setMin(0)
+                axis.setMax(1)
+
 def main():
     app = QApplication(sys.argv)
     

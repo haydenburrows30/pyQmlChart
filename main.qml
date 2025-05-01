@@ -21,33 +21,6 @@ Window {
         chartDataProvider.generate_data()
         chartDataProvider.compute_fft()
 
-        // Helper function to calculate min/max values from an array with safety checks
-        function getMinMax(array) {
-            if (!array || array.length === 0) return { min: 0, max: 1 };
-            
-            // Only sample a reasonable number of points for min/max calculation
-            const maxSamplePoints = 1000;
-            let step = array.length > maxSamplePoints ? Math.floor(array.length / maxSamplePoints) : 1;
-            
-            let min = array[0];
-            let max = array[0];
-            
-            // Use a stepped approach for large arrays
-            for (let i = 0; i < array.length; i += step) {
-                if (array[i] < min) min = array[i];
-                if (array[i] > max) max = array[i];
-            }
-            
-            // Avoid zero ranges that cause render issues
-            if (Math.abs(max - min) < 0.00001) {
-                max = min + 1;
-            }
-            
-            // Add padding (5%)
-            const padding = (max - min) * 0.05;
-            return { min: min - padding, max: max + padding };
-        }
-
         switch (true) {
             // CASE 1: FFT Phase Spectrum + Log Frequency
             case showFFT && showPhase && logFFT: {
@@ -60,16 +33,9 @@ Window {
                 chartView.title = chartDataProvider.phaseTitle + " (Log Freq)"
                 axisX.titleText = "log10(Frequency) [Hz]"
                 
-                // Only update axes if there's data
-                if (chartDataProvider.logPhaseX.length > 0) {
-                    // Use simplified static ranges for phase
-                    axisY.min = -Math.PI;
-                    axisY.max = Math.PI;
-                    
-                    const xRange = getMinMax(chartDataProvider.logPhaseX);
-                    axisX.min = xRange.min;
-                    axisX.max = xRange.max;
-                }
+                // Use Python function to set axis ranges
+                chartDataProvider.setAxisRange(axisY, "phase")
+                chartDataProvider.setAxisRange(axisX, "log_fft_x")
                 
                 axisY.titleText = "Phase (radians)"
                 peakLabel.visible = false;
@@ -87,16 +53,9 @@ Window {
                 chartView.title = chartDataProvider.phaseTitle
                 axisX.titleText = "Frequency (Hz)"
                 
-                // Only update axes if there's data
-                if (chartDataProvider.phaseX.length > 0) {
-                    // Use simplified static ranges for phase
-                    axisY.min = -Math.PI;
-                    axisY.max = Math.PI;
-                    
-                    axisX.min = 0;
-                    const xRange = getMinMax(chartDataProvider.phaseX);
-                    axisX.max = xRange.max;
-                }
+                // Use Python function to set axis ranges
+                chartDataProvider.setAxisRange(axisY, "phase")
+                chartDataProvider.setAxisRange(axisX, "fft_x")
                 
                 axisY.titleText = "Phase (radians)"
                 peakLabel.visible = false;
@@ -114,23 +73,9 @@ Window {
                 chartView.title = chartDataProvider.fftTitle + " (Log Freq)"
                 axisX.titleText = "log10(Frequency) [Hz]"
                 
-                // Only update axes if there's data
-                if (chartDataProvider.logFFTX.length > 0) {
-                    // Simple range for Y: 0 to max
-                    axisY.min = 0;
-                    
-                    // Use a reasonable default if calculating fails
-                    try {
-                        const yMax = Math.max.apply(null, chartDataProvider.logFFTY);
-                        axisY.max = yMax * 1.1; // 10% margin
-                    } catch (e) {
-                        axisY.max = 1;
-                    }
-                    
-                    const xRange = getMinMax(chartDataProvider.logFFTX);
-                    axisX.min = xRange.min;
-                    axisX.max = xRange.max;
-                }
+                // Use Python function to set axis ranges
+                chartDataProvider.setAxisRange(axisY, "log_fft")
+                chartDataProvider.setAxisRange(axisX, "log_fft_x")
                 
                 axisY.titleText = "Magnitude"
                 peakLabel.visible = true;
@@ -149,20 +94,9 @@ Window {
                 chartView.title = chartDataProvider.fftTitle
                 axisX.titleText = "Frequency (Hz)"
                 
-                // Only update axes if there's data
-                if (chartDataProvider.fftX.length > 0) {
-                    axisX.min = 0;
-                    axisX.max = chartDataProvider.fftX[chartDataProvider.fftX.length-1];
-                    
-                    axisY.min = 0;
-                    // Use a reasonable default if calculating fails
-                    try {
-                        const yMax = Math.max.apply(null, chartDataProvider.fftY);
-                        axisY.max = yMax * 1.1; // 10% margin
-                    } catch (e) {
-                        axisY.max = 1;
-                    }
-                }
+                // Use Python function to set axis ranges
+                chartDataProvider.setAxisRange(axisY, "fft")
+                chartDataProvider.setAxisRange(axisX, "fft_x")
                 
                 axisY.titleText = "Magnitude"
                 peakLabel.visible = true;
@@ -181,17 +115,9 @@ Window {
                 chartView.title = chartDataProvider.title
                 axisX.titleText = "X Axis"
                 
-                // Use static ranges for better performance with waveforms
-                axisX.min = 0;
-                axisX.max = 100;
-
-                // Use a reasonable amplitude range based on the plot type
-                const amplitude = chartDataProvider.amplitudeLevel;
-                const noise = chartDataProvider.noiseLevel;
-                const padding = amplitude * 0.2 + noise;
-                
-                axisY.min = -amplitude - padding;
-                axisY.max = amplitude + padding;
+                // Use Python function to set axis ranges
+                chartDataProvider.setAxisRange(axisY, "wave")
+                chartDataProvider.setAxisRange(axisX, "wave_x")
                 
                 axisY.titleText = "Y Axis"
                 peakLabel.visible = false;
