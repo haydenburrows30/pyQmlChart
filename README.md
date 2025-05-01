@@ -25,6 +25,7 @@ Uses ```downSample```, ```fillSeriesFromArrays``` and worker thread.  First the 
 
 ## Features
 
-- Point count to speed up wave and fft generation.
+- Point count to speed up wave and fft generation
 - Axis updates from python
 - All calculations in python
+- Zooming, scrolling and tooltips in chart
